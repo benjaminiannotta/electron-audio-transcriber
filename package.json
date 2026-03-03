@@ -21,7 +21,45 @@
   },
   "build": {
     "appId": "ai.openclaw.electrontranscriber",
-    "productName": "Electron Audio Transcriber"
+    "productName": "Electron Audio Transcriber",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "files": [
+      "dist/renderer/**",
+      "src/main/**",
+      "src/preload/**",
+      "resources/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin/${os}",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
