@@ -1,0 +1,38 @@
+{
+  "name": "electron-audio-transcriber",
+  "version": "0.1.0",
+  "description": "Offline desktop audio transcriber using Electron + ffmpeg + whisper.cpp",
+  "main": "src/main/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "start": "npm run build:renderer && electron .",
+    "build:renderer": "vite build",
+    "lint": "eslint src test scripts --ext .js",
+    "test:unit": "jest test/unit --runInBand",
+    "test:smoke": "jest test/smoke.test.js --runInBand --testTimeout=120000",
+    "test:models": "jest test/models.test.js --runInBand --testTimeout=300000",
+    "test": "npm run test:unit && npm run test:smoke",
+    "download-model": "node scripts/download-model.js",
+    "package": "npm run build:renderer && electron-builder --publish never",
+    "package:all": "npm run build:renderer && electron-builder -mwl --publish never",
+    "build": "npm run build:renderer"
+  },
+  "build": {
+    "appId": "ai.openclaw.electrontranscriber",
+    "productName": "Electron Audio Transcriber"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9.34.0",
+    "jest": "^30.1.3",
+    "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0"
+  }
+}

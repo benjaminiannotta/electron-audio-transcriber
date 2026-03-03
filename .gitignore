@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Bundles
+dist/
+out/
+
+# Binary caches
+models/
+model-cache/
+
+# Build artifacts
+*.log
+*.tmp
+
+# Media that can be re-downloaded
+*.wav
+!resources/test-fixtures/*.wav
+
+# IDEs
+.vscode/

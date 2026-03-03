@@ -1,0 +1,24 @@
+appId: ai.openclaw.electrontranscriber
+productName: Electron Audio Transcriber
+asar: true
+files:
+  - dist/renderer/**
+  - src/main/**
+  - resources/**
+  - package.json
+win:
+  target:
+    - nsis
+mac:
+  target:
+    - dmg
+linux:
+  target:
+    - AppImage
+asarUnpack:
+  - node_modules/ffmpeg-static/**
+extraResources:
+  - from: resources/bin/${os}
+    to: bin
+    filter:
+      - "**/*"
