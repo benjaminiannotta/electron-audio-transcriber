@@ -8,6 +8,7 @@ out/
 # Binary caches
 models/
 model-cache/
+outputs/
 
 # Build artifacts
 *.log
