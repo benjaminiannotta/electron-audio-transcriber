@@ -21,8 +21,29 @@ jobs:
       - run: npm run lint
       - run: npm run test:unit
 
-  build-and-smoke:
+  smoke-linux:
     needs: lint-and-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+        env:
+          CI: true
+      - name: Ensure whisper-cli executable
+        run: chmod +x resources/bin/linux/whisper-cli
+      - name: Download tiny.en model
+        run: npm run download-model -- tiny.en
+      - run: npm run build:renderer
+      - run: npm run test:smoke
+        env:
+          CI: true
+
+  package-matrix:
+    needs: [lint-and-unit, smoke-linux]
     strategy:
       fail-fast: false
       matrix:
@@ -43,14 +64,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y xvfb
           Xvfb :99 -screen 0 1024x768x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
-      - name: Download tiny.en model
-        run: npm run download-model -- tiny.en
-      - run: npm run build:renderer
-      - run: npm run test:smoke
-        env:
-          CI: true
-      - name: Package
-        run: npm run package
+      - run: npm run package
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

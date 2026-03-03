@@ -6,6 +6,7 @@ const { promisify } = require('util');
 const EventEmitter = require('events');
 
 const pipelineAsync = promisify(pipeline);
+const MIN_MODEL_BYTES = 1024 * 1024;
 
 const MODEL_REGISTRY = {
   'tiny.en': {
@@ -39,16 +40,43 @@ function ensureDirectory(dirPath) {
   return fs.promises.mkdir(dirPath, { recursive: true });
 }
 
+function readMagic(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(4);
+    fs.readSync(fd, buf, 0, 4, 0);
+    return buf.toString('latin1');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function isValidModelFile(filePath) {
+  try {
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile() || stats.size < MIN_MODEL_BYTES) return false;
+    return readMagic(filePath) === 'lmgg';
+  } catch {
+    return false;
+  }
+}
+
 function resolveRedirect(url, redirectsLeft) {
   if (redirectsLeft <= 0) {
-    return Promise.reject(new Error('Too many redirects')); 
+    return Promise.reject(new Error('Too many redirects'));
   }
 
   return new Promise((resolve, reject) => {
-    const request = https.get(url, (response) => {
+    const request = https.get(url, {
+      headers: {
+        'User-Agent': 'electron-audio-transcriber/0.1',
+        Accept: 'application/octet-stream,*/*'
+      }
+    }, (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        const next = new URL(response.headers.location, url).toString();
         response.resume();
-        resolve(resolveRedirect(response.headers.location, redirectsLeft - 1));
+        resolve(resolveRedirect(next, redirectsLeft - 1));
         return;
       }
 
@@ -58,11 +86,6 @@ function resolveRedirect(url, redirectsLeft) {
       }
 
       const total = Number(response.headers['content-length'] || 0);
-      let downloaded = 0;
-      response.on('data', (chunk) => {
-        downloaded += chunk.length;
-      });
-
       resolve({ response, total });
     });
 
@@ -71,7 +94,7 @@ function resolveRedirect(url, redirectsLeft) {
 }
 
 async function downloadWithProgress(url, destination, onProgress) {
-  const { response, total } = await resolveRedirect(url, 5);
+  const { response, total } = await resolveRedirect(url, 8);
   const fileStream = fs.createWriteStream(destination);
   let downloaded = 0;
 
@@ -107,12 +130,7 @@ class ModelManager extends EventEmitter {
   }
 
   isModelDownloaded(modelName) {
-    try {
-      const stats = fs.statSync(this.getModelPath(modelName));
-      return stats.isFile() && stats.size > 1024;
-    } catch (error) {
-      return false;
-    }
+    return isValidModelFile(this.getModelPath(modelName));
   }
 
   getModels() {
@@ -139,27 +157,37 @@ class ModelManager extends EventEmitter {
       const tempPath = path.join(dir, `ggml-${modelName}.bin.tmp`);
       const finalPath = this.getModelPath(modelName);
 
-      if (fs.existsSync(finalPath)) {
+      if (isValidModelFile(finalPath)) {
         return finalPath;
       }
 
+      await fs.promises.rm(finalPath, { force: true });
       await fs.promises.rm(tempPath, { force: true });
-      await downloadWithProgress(meta.url, tempPath, (progress) => {
+
+      try {
+        await downloadWithProgress(meta.url, tempPath, (progress) => {
+          this.emit('download-progress', {
+            model: modelName,
+            ...progress
+          });
+        });
+
+        if (!isValidModelFile(tempPath)) {
+          throw new Error(`Downloaded model ${modelName} failed integrity check`);
+        }
+
+        await fs.promises.rename(tempPath, finalPath);
         this.emit('download-progress', {
           model: modelName,
-          ...progress
+          total: meta.sizeInBytes,
+          downloaded: meta.sizeInBytes,
+          percent: 100
         });
-      });
 
-      await fs.promises.rename(tempPath, finalPath);
-      this.emit('download-progress', {
-        model: modelName,
-        total: meta.sizeInBytes,
-        downloaded: meta.sizeInBytes,
-        percent: 100
-      });
-
-      return finalPath;
+        return finalPath;
+      } finally {
+        await fs.promises.rm(tempPath, { force: true });
+      }
     })();
 
     this.activeDownloads.set(modelName, downloadPromise);
@@ -171,5 +199,6 @@ class ModelManager extends EventEmitter {
 
 module.exports = {
   ModelManager,
-  MODEL_REGISTRY
+  MODEL_REGISTRY,
+  isValidModelFile
 };

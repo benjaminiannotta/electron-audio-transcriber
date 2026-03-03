@@ -17,13 +17,8 @@ const modelManager = new ModelManager({
   getModelsDir: () => cacheDir
 });
 
-function hasExecutableWhisper() {
-  try {
-    fs.accessSync(whisperPath, fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
+function assertExecutableWhisper() {
+  fs.accessSync(whisperPath, fs.constants.X_OK);
 }
 
 jest.setTimeout(200000);
@@ -42,13 +37,11 @@ test('full pipeline: audio produces expected keyword', async () => {
   const preprocessed = await session.preprocessAudio(fixturePath);
   expect(fs.existsSync(preprocessed)).toBe(true);
 
-  if (!hasExecutableWhisper()) {
-    expect(fs.statSync(preprocessed).size).toBeGreaterThan(1000);
-    return;
-  }
+  expect(fs.statSync(preprocessed).size).toBeGreaterThan(1000);
 
-  const whisperHelp = (await execFileAsync(whisperPath, ['--help'])).stdout;
-  expect(whisperHelp.length).toBeGreaterThan(0);
+  assertExecutableWhisper();
+  const whisperHelp = await execFileAsync(whisperPath, ['--help']);
+  expect((whisperHelp.stdout + whisperHelp.stderr).length).toBeGreaterThan(0);
 
   const transcript = await session.transcribe(fixturePath, 'tiny.en');
   expect(transcript.toLowerCase()).toContain('country');
