@@ -42,8 +42,11 @@ function createWindow() {
 
   registerIpcHandlers({ window: mainWindow, transcriptionSession, modelManager });
 
-  const loadUrl = isDev ? process.env.VITE_DEV_SERVER_URL : `file://${rendererPath}`;
-  mainWindow.loadURL(loadUrl);
+  if (isDev) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    mainWindow.loadFile(rendererPath);
+  }
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
